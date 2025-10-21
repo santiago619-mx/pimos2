@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Producto;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use App\Http\Resources\ProductoResource;     // Importado para show, store, update
+use App\Http\Resources\ProductoCollection;  // Importado para index
 
 /**
  * Gestiona la lógica CRUD de las Gomitas (Productos).
@@ -14,14 +16,16 @@ class ProductoController extends Controller
 {
     /**
      * Muestra una lista de todos los productos.
-     * @return \Illuminate\Http\JsonResponse
+     * MODIFICACIÓN: Usa ProductoCollection para estandarizar la respuesta de lista.
+     * @return \App\Http\Resources\ProductoCollection
      */
     public function index()
     {
         try {
-            // Carga todos los productos y su relación de inventario
+            // Carga la relación de inventario para que el Resource pueda acceder al stock
             $productos = Producto::with('inventario')->get();
-            return response()->json($productos, 200);
+            return new ProductoCollection($productos); 
+
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error al obtener la lista de productos.', 'message' => $e->getMessage()], 500);
         }
@@ -29,6 +33,7 @@ class ProductoController extends Controller
 
     /**
      * Almacena un nuevo producto en la base de datos.
+     * MODIFICACIÓN: Retorna el Resource del producto creado (201).
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
@@ -40,20 +45,25 @@ class ProductoController extends Controller
                 'sabor' => 'required|string|max:255',
                 'tamano' => 'required|string|max:255',
                 'precio' => 'required|numeric|min:0.01',
-                'cantidad_existencias' => 'nullable|integer|min:0', // Opcional para crear el inventario inicial
+                'cantidad_existencias' => 'nullable|integer|min:0',
             ]);
 
-            // 1. Crear el Producto
             $producto = Producto::create($validatedData);
 
-            // 2. Crear el registro de Inventario inicial (si se proporcionó la cantidad)
-            if (isset($validatedData['cantidad_existencias'])) {
+            // Crear el registro de inventario inicial (si se proporcionó la cantidad)
+            if (isset($validatedData['cantidad_existencias']))
+            {
                 $producto->inventario()->create([
                     'cantidad_existencias' => $validatedData['cantidad_existencias']
                 ]);
             }
+            
+            $producto->load('inventario');
 
-            return response()->json(['message' => 'Producto creado con éxito.', 'data' => $producto->load('inventario')], 201);
+            return response()->json([
+                'message' => 'Producto creado con éxito.', 
+                'data' => new ProductoResource($producto) // Usa el Resource
+            ], 201);
 
         } catch (ValidationException $e) {
             return response()->json(['error' => 'Datos de entrada inválidos.', 'messages' => $e->errors()], 422);
@@ -64,6 +74,7 @@ class ProductoController extends Controller
 
     /**
      * Muestra un producto específico.
+     * MODIFICACIÓN: Usa ProductoResource para estandarizar la respuesta de item.
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
@@ -75,11 +86,12 @@ class ProductoController extends Controller
             return response()->json(['error' => 'Producto no encontrado.'], 404);
         }
 
-        return response()->json($producto, 200);
+        return new ProductoResource($producto); // Usa el Resource
     }
 
     /**
      * Actualiza un producto existente.
+     * MODIFICACIÓN: Retorna el Resource del producto actualizado (200).
      * @param \Illuminate\Http\Request $request
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
@@ -94,7 +106,7 @@ class ProductoController extends Controller
 
         try {
             $validatedData = $request->validate([
-                // Permite cambiar el nombre, pero verifica si es único si se cambia
+                // unique ignora el producto actual
                 'nombre_gomita' => 'sometimes|required|string|max:255|unique:productos,nombre_gomita,' . $id,
                 'sabor' => 'sometimes|required|string|max:255',
                 'tamano' => 'sometimes|required|string|max:255',
@@ -102,8 +114,9 @@ class ProductoController extends Controller
             ]);
 
             $producto->update($validatedData);
+            $producto->load('inventario');
 
-            return response()->json(['message' => 'Producto actualizado con éxito.', 'data' => $producto], 200);
+            return response()->json(['message' => 'Producto actualizado con éxito.', 'data' => new ProductoResource($producto)], 200); // Usa el Resource
 
         } catch (ValidationException $e) {
             return response()->json(['error' => 'Datos de entrada inválidos.', 'messages' => $e->errors()], 422);
@@ -111,15 +124,13 @@ class ProductoController extends Controller
             return response()->json(['error' => 'Error al actualizar el producto.', 'message' => $e->getMessage()], 500);
         }
     }
-
+    
     /**
-     * Elimina un producto.
-     *
-     * IMPORTANTE: La migración de productos tiene onDelete('cascade') en Inventario y Detalles_Pedidos.
-     * Esto significa que al eliminar un producto, todos los registros relacionados en esas tablas también se eliminarán.
+     * Elimina un producto de la base de datos.
+     * Sin modificaciones de Resource, ya que la respuesta es simple (200 OK).
      *
      * @param int $id
-     * @return \Illuminate\Http\JsonResponse
+     * @return \Illuminate\Http\Response
      */
     public function destroy(int $id)
     {
@@ -131,7 +142,9 @@ class ProductoController extends Controller
 
         try {
             $producto->delete();
+            
             return response()->json(['message' => 'Producto eliminado con éxito.'], 200);
+
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error al eliminar el producto.', 'message' => $e->getMessage()], 500);
         }

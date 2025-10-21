@@ -8,25 +8,29 @@ use App\Models\Producto;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use App\Http\Resources\PedidoResource;     // Importado
+use App\Http\Resources\PedidoCollection;  // Importado
 
 /**
- * Gestiona la lógica de Pedidos, incluyendo la creación de detalles.
+ * Gestiona la lógica de Pedidos.
  */
 class PedidoController extends Controller
 {
     /**
      * Muestra una lista de todos los pedidos.
-     * @return \Illuminate\Http\JsonResponse
+     * MODIFICACIÓN: Usa PedidoCollection y carga relaciones.
+     * @return \App\Http\Resources\PedidoCollection
      */
     public function index()
     {
         try {
-            // Carga los pedidos, incluyendo el usuario y los detalles
-            $pedidos = Pedido::with(['user:id,name,email', 'detallesPedidos.producto:id,nombre_gomita'])
-                                ->latest() // Muestra los más recientes primero
-                                ->paginate(20); // Paginación para grandes volúmenes
+            // MUY IMPORTANTE: Cargar todas las relaciones que el Resource usará
+            $pedidos = Pedido::with(['user', 'detallesPedidos.producto']) 
+                             ->latest() 
+                             ->paginate(20); 
 
-            return response()->json($pedidos, 200);
+            return new PedidoCollection($pedidos); 
+
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error al obtener la lista de pedidos.', 'message' => $e->getMessage()], 500);
         }
@@ -34,74 +38,65 @@ class PedidoController extends Controller
 
     /**
      * Crea un nuevo pedido con sus líneas de detalle.
-     *
-     * El cuerpo de la solicitud (request body) debe incluir:
-     * {
-     * "user_id": 1,
-     * "detalles": [
-     * { "producto_id": 1, "cantidad": 5 },
-     * { "producto_id": 2, "cantidad": 10 }
-     * ]
-     * }
-     *
+     * MODIFICACIÓN: Retorna el Resource del pedido creado (201).
      * @param \Illuminate\Http\Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function store(Request $request)
     {
-        // 1. Validar la estructura del pedido
-        try {
-            $validatedData = $request->validate([
-                'user_id' => 'required|exists:users,id',
-                'detalles' => 'required|array|min:1',
-                'detalles.*.producto_id' => 'required|exists:productos,id',
-                'detalles.*.cantidad' => 'required|integer|min:1',
-            ]);
-        } catch (ValidationException $e) {
-            return response()->json(['error' => 'Datos de entrada inválidos para el pedido.', 'messages' => $e->errors()], 422);
-        }
+        // Esta validación y lógica asume un usuario autenticado y la estructura de carrito.
+        $validatedData = $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'detalles' => 'required|array|min:1',
+            'detalles.*.producto_id' => 'required|exists:productos,id',
+            'detalles.*.cantidad' => 'required|integer|min:1',
+        ]);
 
-        // Usamos una transacción para asegurar que si falla el detalle, todo el pedido se revierta.
         DB::beginTransaction();
 
         try {
-            $totalPedido = 0;
+            $total = 0;
             $detallesParaCrear = [];
 
-            // 2. Procesar cada detalle para calcular precios y total
+            // Obtener productos y calcular el total
             foreach ($validatedData['detalles'] as $detalle) {
                 $producto = Producto::find($detalle['producto_id']);
                 
-                // Nota: Aquí deberías verificar si hay suficiente stock en Inventario antes de crear el pedido.
-                // Por simplicidad, se omite esa verificación, pero es crucial en producción.
+                // Cálculo del subtotal y total
+                $subtotal = $producto->precio * $detalle['cantidad'];
+                $total += $subtotal;
 
-                $precioUnitario = $producto->precio;
-                $subtotal = $detalle['cantidad'] * $precioUnitario;
-                $totalPedido += $subtotal;
-
+                // Preparamos los datos del detalle
                 $detallesParaCrear[] = [
                     'producto_id' => $detalle['producto_id'],
                     'cantidad' => $detalle['cantidad'],
-                    'precio_unitario' => $precioUnitario,
-                    'created_at' => now(),
-                    'updated_at' => now(),
+                    'precio_unitario' => $producto->precio, // Registrar el precio al momento de la compra
                 ];
             }
-
-            // 3. Crear el Pedido maestro
+            
+            // Crear el Pedido maestro
             $pedido = Pedido::create([
                 'user_id' => $validatedData['user_id'],
-                'total' => $totalPedido,
-                'estado' => 'pendiente',
+                'total' => $total,
+                'estado' => 'pendiente', // Estado inicial
             ]);
-
-            // 4. Crear los Detalles del Pedido
-            $pedido->detallesPedidos()->insert($detallesParaCrear);
             
+            // Adjuntar los detalles al pedido
+            $pedido->detallesPedidos()->createMany($detallesParaCrear);
+
             DB::commit();
 
-            return response()->json(['message' => 'Pedido creado con éxito.', 'data' => $pedido->load('detallesPedidos')], 201);
+            // Carga las relaciones para que el Resource las serialice correctamente
+            $pedido->load(['user', 'detallesPedidos.producto']);
+            
+            return response()->json([
+                'message' => 'Pedido creado con éxito.', 
+                'data' => new PedidoResource($pedido) // Usa el Resource
+            ], 201);
 
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Datos de entrada inválidos.', 'messages' => $e->errors()], 422);
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json(['error' => 'Error al procesar el pedido.', 'message' => $e->getMessage()], 500);
@@ -110,23 +105,25 @@ class PedidoController extends Controller
 
     /**
      * Muestra un pedido específico.
+     * MODIFICACIÓN: Usa PedidoResource y carga relaciones.
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
      */
     public function show(int $id)
     {
-        $pedido = Pedido::with(['user:id,name,email', 'detallesPedidos.producto:id,nombre_gomita,sabor,tamano'])
+        // MUY IMPORTANTE: Cargar todas las relaciones que el Resource usará
+        $pedido = Pedido::with(['user', 'detallesPedidos.producto'])
                         ->find($id);
 
         if (!$pedido) {
             return response()->json(['error' => 'Pedido no encontrado.'], 404);
         }
 
-        return response()->json($pedido, 200);
+        return new PedidoResource($pedido); // Usa el Resource
     }
 
     /**
-     * Actualiza el estado de un pedido (típicamente usado por el administrador).
+     * Actualiza un pedido existente (típicamente su estado).
      * @param \Illuminate\Http\Request $request
      * @param int $id
      * @return \Illuminate\Http\JsonResponse
@@ -138,22 +135,30 @@ class PedidoController extends Controller
         if (!$pedido) {
             return response()->json(['error' => 'Pedido no encontrado.'], 404);
         }
-        
+
         try {
+            // Se valida solo el campo 'estado'
             $validatedData = $request->validate([
-                'estado' => 'sometimes|required|in:pendiente,procesando,enviado,entregado',
+                'estado' => 'sometimes|required|in:pendiente,procesando,enviado,entregado,cancelado',
             ]);
 
             $pedido->update($validatedData);
 
-            return response()->json(['message' => 'Estado del pedido actualizado.', 'data' => $pedido], 200);
+            // Carga las relaciones para devolver el pedido actualizado en el formato Resource
+            $pedido->load(['user', 'detallesPedidos.producto']);
+            
+            return response()->json([
+                'message' => 'Pedido actualizado con éxito.', 
+                'data' => new PedidoResource($pedido) // Usa el Resource para la respuesta
+            ], 200);
+
         } catch (ValidationException $e) {
             return response()->json(['error' => 'Datos de entrada inválidos.', 'messages' => $e->errors()], 422);
         } catch (\Exception $e) {
-            return response()->json(['error' => 'Error al actualizar el estado del pedido.', 'message' => $e->getMessage()], 500);
+            return response()->json(['error' => 'Error al actualizar el pedido.', 'message' => $e->getMessage()], 500);
         }
     }
-
+    
     /**
      * Elimina un pedido.
      * @param int $id
@@ -169,7 +174,10 @@ class PedidoController extends Controller
 
         try {
             $pedido->delete();
+            
+            // Respuesta simple sin Resource, 200 OK con mensaje de éxito.
             return response()->json(['message' => 'Pedido eliminado con éxito.'], 200);
+
         } catch (\Exception $e) {
             return response()->json(['error' => 'Error al eliminar el pedido.', 'message' => $e->getMessage()], 500);
         }
