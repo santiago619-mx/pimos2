@@ -7,22 +7,25 @@ use Illuminate\Foundation\Http\FormRequest;
 class UpdateInventarioRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Determina si el usuario está autorizado a realizar esta solicitud.
      */
     public function authorize(): bool
     {
-        return false;
+        // Cambia a 'true' o implementa tu lógica de autorización
+        // Ejemplo: return $this->user()->can('update-inventory');
+        return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Obtiene las reglas de validación que se aplican a la solicitud.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            //
+            // 'sometimes' significa que solo se valida si el campo viene en la petición
+            'cantidad_existencias' => 'sometimes|required|integer|min:0',
         ];
     }
 }

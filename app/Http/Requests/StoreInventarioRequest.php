@@ -7,22 +7,29 @@ use Illuminate\Foundation\Http\FormRequest;
 class StoreInventarioRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Determina si el usuario está autorizado a realizar esta solicitud.
      */
     public function authorize(): bool
     {
-        return false;
+        // Cambia a 'true' o implementa tu lógica de autorización
+        // Ejemplo: return $this->user()->can('create-inventory');
+        return true;
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Obtiene las reglas de validación que se aplican a la solicitud.
      *
      * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            //
+            // El producto debe existir en la tabla 'productos' (columna 'id')
+            // y debe ser único en la tabla 'inventarios' (columna 'producto_id')
+            'producto_id' => 'required|exists:productos,id|unique:inventarios,producto_id',
+            
+            // La cantidad es obligatoria, debe ser un número entero y no puede ser negativa
+            'cantidad_existencias' => 'required|integer|min:0',
         ];
     }
 }
