@@ -14,47 +14,67 @@ class RolSeeder extends Seeder
      */
     public function run(): void
     {
+        // Limpiar caché de permisos (si es necesario)
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+
         // 1. DEFINICIÓN DE ROLES
         $administrador = Role::firstOrCreate(['name' => 'Administrador']);
         $editor = Role::firstOrCreate(['name' => 'Editor']);
         $usuario = Role::firstOrCreate(['name' => 'Usuario']);
 
         // 2. DEFINICIÓN DE PERMISOS
+        // NOTA IMPORTANTE: Se elimina 'description' de firstOrCreate para evitar el error de columna inexistente.
+        // Los permisos se identifican solo por 'name' y 'guard_name'.
 
         // --- Permisos de Productos (CRUD) ---
-        Permission::firstOrCreate(['name' => 'productos.ver', 'description' => 'Visualizar lista y detalle de productos'])
-            ->syncRoles([$administrador, $editor, $usuario]);
-        Permission::firstOrCreate(['name' => 'productos.crear', 'description' => 'Crear nuevos productos'])
+        // description: Visualizar lista y detalle de productos
+        Permission::firstOrCreate(['name' => 'productos.ver'])
+             ->syncRoles([$administrador, $editor, $usuario]);
+             
+        // description: Crear nuevos productos
+        Permission::firstOrCreate(['name' => 'productos.crear'])
             ->syncRoles([$administrador]);
-        Permission::firstOrCreate(['name' => 'productos.editar', 'description' => 'Modificar productos existentes'])
+            
+        // description: Modificar productos existentes
+        Permission::firstOrCreate(['name' => 'productos.editar'])
             ->syncRoles([$administrador, $editor]);
-        Permission::firstOrCreate(['name' => 'productos.eliminar', 'description' => 'Eliminar productos'])
+            
+        // description: Eliminar productos
+        Permission::firstOrCreate(['name' => 'productos.eliminar'])
             ->syncRoles([$administrador]);
 
         // --- Permisos de Inventario (CRUD Completo y Ajuste de Stock) ---
-        Permission::firstOrCreate(['name' => 'inventario.ver', 'description' => 'Visualizar el inventario y stock actual'])
+        // description: Visualizar el inventario y stock actual
+        Permission::firstOrCreate(['name' => 'inventario.ver'])
             ->syncRoles([$administrador, $editor]);
         
-        // **NUEVO PERMISO AÑADIDO: CREAR**
-        Permission::firstOrCreate(['name' => 'inventario.crear', 'description' => 'Crear un nuevo registro de stock inicial para un producto'])
+        // description: Crear un nuevo registro de stock inicial para un producto
+        Permission::firstOrCreate(['name' => 'inventario.crear'])
             ->syncRoles([$administrador, $editor]);
 
-        // Ajustar stock (equivalente a "editar" la cantidad)
-        Permission::firstOrCreate(['name' => 'inventario.ajustar_stock', 'description' => 'Ajustar, reabastecer o modificar la cantidad de stock'])
+        // description: Ajustar, reabastecer o modificar la cantidad de stock
+        Permission::firstOrCreate(['name' => 'inventario.ajustar_stock'])
             ->syncRoles([$administrador, $editor]);
 
-        // Eliminación del registro (muy restringido)
-        Permission::firstOrCreate(['name' => 'inventario.eliminar_registro', 'description' => 'Eliminar registros de inventario (Solo por emergencia y a discreción del Admin)'])
+        // description: Eliminar registros de inventario (Solo por emergencia y a discreción del Admin)
+        Permission::firstOrCreate(['name' => 'inventario.eliminar_registro'])
             ->syncRoles([$administrador]);
         
         // --- Permisos de Pedidos ---
-        Permission::firstOrCreate(['name' => 'pedidos.ver', 'description' => 'Visualizar lista completa de pedidos (Admin/Editor)'])
+        // description: Visualizar lista completa de pedidos (Admin/Editor)
+        Permission::firstOrCreate(['name' => 'pedidos.ver'])
             ->syncRoles([$administrador, $editor]); 
-        Permission::firstOrCreate(['name' => 'pedidos.crear', 'description' => 'Crear nuevos pedidos'])
+            
+        // description: Crear nuevos pedidos
+        Permission::firstOrCreate(['name' => 'pedidos.crear'])
             ->syncRoles([$administrador, $editor, $usuario]);
-        Permission::firstOrCreate(['name' => 'pedidos.procesar', 'description' => 'Cambiar estado de pedidos (Ej: Pendiente -> Enviado)'])
+            
+        // description: Cambiar estado de pedidos (Ej: Pendiente -> Enviado)
+        Permission::firstOrCreate(['name' => 'pedidos.procesar'])
             ->syncRoles([$administrador, $editor]);
-        Permission::firstOrCreate(['name' => 'pedidos.cancelar', 'description' => 'Eliminar o anular pedidos'])
+            
+        // description: Eliminar o anular pedidos
+        Permission::firstOrCreate(['name' => 'pedidos.cancelar'])
             ->syncRoles([$administrador]);
     }
 }
