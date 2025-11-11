@@ -6,49 +6,65 @@ use App\Models\Inventario;
 use App\Models\Pedido;
 use App\Models\Producto;
 use App\Models\User;
+use App\Models\DetallePedido; // Modelo necesario para el factory encadenado
+use Illuminate\Database\Eloquent\Factories\Factory; 
 use Illuminate\Database\Seeder;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB; // <-- ¡IMPORTA DB AQUÍ!
+use Illuminate\Support\Facades\DB; 
 
 class DatabaseSeeder extends Seeder
 {
-    // ...
+    /**
+     * Seed the application's database.
+     */
     public function run(): void
     {
-        // ***** SOLUCIÓN DEFINITIVA PARA SQLITE *****
-        // Deshabilita la verificación de claves foráneas antes de insertar datos
+        // 1. LLAMAR AL SEEDER DE ROLES Y PERMISOS
+        $this->call(RolSeeder::class);
+
+        // ***** SOLUCIÓN DEFINITIVA PARA SQLITE (Pragma de Foráneas) *****
         if (DB::connection() instanceof \Illuminate\Database\SQLiteConnection) {
             DB::statement('PRAGMA foreign_keys = OFF;');
         }
         
-        // 1. Crear Usuario Administrador fijo
+        // 2. CREACIÓN DE USUARIOS CLAVE Y ASIGNACIÓN DE ROLES
+        
+        // Usuario Administrador (Acceso Total)
         User::factory()->create([
-            'name' => 'Admin de Gomitas',
-            'email' => 'admin@gomitas.com',
-            'password' => Hash::make('password'), 
-        ]);
+            'name' => 'Admin de PIMOS',
+            'email' => 'admin@pimos.com', 
+            'password' => Hash::make('password'), // Contraseña: password
+        ])->assignRole('Administrador'); // Asignar rol de Administrador
+
+        // Usuario Editor (Gestión de Productos/Pedidos/Inventario)
+        User::factory()->create([
+            'name' => 'Editor de PIMOS',
+            'email' => 'editor@pimos.com',
+            'password' => Hash::make('password'), // Contraseña: password
+        ])->assignRole('Editor'); // Asignar rol de Editor
         
-        // 2. Crear usuarios aleatorios
-        User::factory(49)->create();
+        // 3. Crear 48 usuarios aleatorios y asignarles el rol 'Usuario'
+        User::factory(48)->create()->each(function ($user) {
+            $user->assignRole('Usuario');
+        });
         
-        // 3. Crear Productos de Prueba (50 Tipos de Gomitas)
+        // 4. Crear Productos de Prueba (50 tipos de gomitas, por ejemplo)
         $productos = Producto::factory(50)->create();
 
-        // 4. Crear Inventario (stock para cada uno de los 50 productos)
+        // 5. Crear Inventario (stock inicial para cada uno de los 50 productos)
         foreach ($productos as $producto) {
             Inventario::factory()->create([
                 'producto_id' => $producto->id,
             ]);
         }
 
-        // 5. Crear Pedidos y sus Detalles (200 Pedidos Maestros)
+        // 6. Crear Pedidos y sus Detalles (200 Pedidos)
         Pedido::factory(200)
-            ->hasDetallesPedidos(rand(1, 8)) 
+            // DetallePedidoFactory existe y usa el nombre de relación 'detallesPedidos'
+            ->has(DetallePedido::factory()->count(rand(1, 8)), 'detallesPedidos') 
             ->create();
 
         // ***** HABILITAR LA VERIFICACIÓN AL FINAL *****
-        // Vuelve a habilitar las claves foráneas después de insertar datos
         if (DB::connection() instanceof \Illuminate\Database\SQLiteConnection) {
             DB::statement('PRAGMA foreign_keys = ON;');
         }
