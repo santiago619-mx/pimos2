@@ -8,9 +8,6 @@ use App\Rules\CheckStock; // Importar la regla de stock
 /**
  * Valida los datos al crear un nuevo Pedido.
  * Asegura que el array 'detalles' esté presente y que cada detalle tenga un producto existente y una cantidad válida.
- *
- * NOTA: El campo user_id se omite en la validación ya que el controlador lo asigna
- * automáticamente usando el usuario autenticado (Auth::id()), lo cual es una mejor práctica.
  */
 class StorePedidoRequest extends FormRequest
 {
@@ -29,8 +26,9 @@ class StorePedidoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // El 'user_id' se elimina de la validación ya que el controlador lo asigna.
-            // 'user_id' => 'required|exists:users,id', <-- ELIMINADO
+            // Se permite enviar 'user_id' (e.g., por un Admin) pero es opcional,
+            // si no se envía, el controlador asignará el usuario autenticado.
+            'user_id' => 'nullable|integer|exists:users,id', 
 
             'estado' => 'nullable|string|in:pendiente,enviado,cancelado,entregado', // El controlador lo establece en 'pendiente' por defecto
             'total' => 'nullable|numeric|min:0', // El controlador lo calcula
@@ -41,7 +39,6 @@ class StorePedidoRequest extends FormRequest
             'detalles.*.producto_id' => ['required', 'integer', 'exists:productos,id'],
             
             // Regla de validación personalizada: verifica que haya suficiente stock.
-            // Esta regla se ejecuta antes de la lógica del controlador.
             'detalles.*.cantidad' => ['required', 'integer', 'min:1', new CheckStock()],
             
             'detalles.*.precio_unitario' => 'nullable|numeric|min:0.01', 
@@ -54,6 +51,7 @@ class StorePedidoRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'user_id.exists' => 'El ID de usuario proporcionado no existe.',
             'detalles.required' => 'El pedido debe contener al menos un producto en el array detalles.',
             'detalles.min' => 'El pedido debe contener al menos un producto.',
             'detalles.*.producto_id.exists' => 'El producto con el ID proporcionado no existe.',
