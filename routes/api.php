@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\ProductoController;
 use App\Http\Controllers\Api\InventarioController;
 use App\Http\Controllers\Api\PedidoController;
-use App\Http\Controllers\Api\LoginController; // ¡NUEVO: Importar el controlador de login!
+use App\Http\Controllers\Api\LoginController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,7 +30,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Rutas de Recursos (CRUD Completo)
     Route::apiResource('productos', ProductoController::class);
     Route::apiResource('inventario', InventarioController::class);
+    
+    // Rutas de Pedidos (Recurso RESTful estándar)
     Route::apiResource('pedidos', PedidoController::class);
+    
+    // RUTA PERSONALIZADA AÑADIDA: Para manejar la cancelación de un pedido de forma explícita
+    // Esto es crucial para la lógica de reversión de stock en el controlador.
+    Route::put('pedidos/{pedido}/cancel', [PedidoController::class, 'cancel'])->name('pedidos.cancel');
     
     // Ruta para cerrar sesión
     Route::post('logout', [LoginController::class, 'destroy']);
