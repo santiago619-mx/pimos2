@@ -5,16 +5,25 @@ namespace App\Policies;
 use App\Models\User;
 use App\Models\Pedido;
 use Illuminate\Auth\Access\Response;
+use Illuminate\Auth\Access\HandlesAuthorization;
 
 class PedidoPolicy
 {
+    use HandlesAuthorization;
+
     /**
      * Permite a los administradores pasar todas las comprobaciones de política.
+     * Esto soluciona el fallo en destroy administrator.
+     *
+     * @param User $user
+     * @param string $ability
+     * @return bool|null
      */
     public function before(User $user, string $ability): ?bool
     {
-        // Usamos 'Administrador' ya que ese fue el rol fallido en los primeros tests.
-        if ($user->hasRole('Administrador')) {
+        // Si el usuario es administrador, siempre permite la acción.
+        // ASUMIMOS que el método hasRole('Administrador') existe en el modelo User
+        if (method_exists($user, 'hasRole') && $user->hasRole('Administrador')) {
             return true;
         }
 
@@ -22,18 +31,15 @@ class PedidoPolicy
     }
 
     /**
-     * Determina si el usuario puede ver cualquier modelo de pedido (listado global).
-     * Solo Administradores (ya cubierto por before()).
+     * Determina si el usuario puede ver cualquier modelo (solo Administrador).
      */
-    public function viewAny(User $user): bool
-    {
-        // Esta regla solo se ejecuta si before() devuelve null (es decir, el usuario NO es Administrador).
-        return false;
+    public function viewAny(User $user): bool 
+    { 
+        return (method_exists($user, 'hasRole') && $user->hasRole('Administrador'));
     }
 
     /**
-     * Determina si el usuario puede ver un modelo de pedido específico.
-     * Permitido si es el dueño del pedido (user_id coincide).
+     * Determina si el dueño puede ver su propio pedido. (Corregido: Ya estaba bien).
      */
     public function view(User $user, Pedido $pedido): bool
     {
@@ -41,58 +47,41 @@ class PedidoPolicy
     }
 
     /**
-     * Determina si el usuario puede crear modelos de pedido.
-     * Permitido para cualquier usuario autenticado.
+     * Determina si el usuario puede crear un pedido.
      */
-    public function create(User $user): bool
-    {
-        return true;
+    public function create(User $user): bool 
+    { 
+        return true; 
     }
 
     /**
-     * Determina si el usuario puede actualizar el modelo de pedido.
-     *
-     * IMPORTANTE: Esta política se usa para actualizaciones que CAMBIAN EL ESTADO
-     * a 'enviado', 'entregado', etc., y debe ser restringida a los Administradores
-     * (quienes ya pasan por before()).
+     * Determina si el usuario puede actualizar el modelo (solo Admin para cambios de estado).
      */
     public function update(User $user, Pedido $pedido): bool
     {
-        // Si no es Administrador (lo cual ya fue validado en before()), se deniega.
+        // La lógica de actualización de estado que NO es cancelación solo está permitida al Admin
+        // que pasa por el hook 'before'. Si llega aquí, es un usuario normal y no puede actualizar estados.
         return false;
     }
-
+    
     /**
-     * Determina si el usuario puede CANCELAR el modelo de pedido.
-     * Esta política permite al dueño cambiar el estado a 'cancelado' y revertir el stock.
+     * Determina si el dueño puede CANCELAR su propio pedido. (Corregido: Ya estaba bien).
      */
     public function cancel(User $user, Pedido $pedido): bool
     {
         return $user->id === $pedido->user_id;
     }
 
+
     /**
-     * Determina si el usuario puede eliminar el modelo de pedido.
-     * Permitido si es el dueño del pedido.
+     * Determina si el usuario puede eliminar el modelo de pedido. (Corregido: Ya estaba bien).
      */
     public function delete(User $user, Pedido $pedido): bool
     {
+        // Si es Admin, pasa por 'before'. Si llega aquí, es un usuario normal.
         return $user->id === $pedido->user_id;
     }
 
-    /**
-     * Determina si el usuario puede restaurar el modelo de pedido.
-     */
-    public function restore(User $user, Pedido $pedido): bool
-    {
-        return $user->id === $pedido->user_id;
-    }
-
-    /**
-     * Determina si el usuario puede forzar la eliminación del modelo de pedido.
-     */
-    public function forceDelete(User $user, Pedido $pedido): bool
-    {
-        return $user->id === $pedido->user_id;
-    }
+    public function restore(User $user, Pedido $pedido): bool { return $user->id === $pedido->user_id; }
+    public function forceDelete(User $user, Pedido $pedido): bool { return $user->id === $pedido->user_id; }
 }
