@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pedido;
-use App\Models\Producto;
+use App\Models\Inventario; 
 use App\Http\Resources\PedidoResource;
 use App\Http\Resources\PedidoCollection;
 use Illuminate\Http\Request;
@@ -13,7 +13,7 @@ use App\Http\Requests\StorePedidoRequest;
 use App\Http\Requests\UpdatePedidoRequest; 
 use Symfony\Component\HttpFoundation\Response; 
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests; 
-use Illuminate\Support\Facades\Log; // Importar Facade Log para un logging más limpio
+use Illuminate\Support\Facades\Log;
 
 /**
  * Gestiona la lógica CRUD de los Pedidos, incluyendo la deducción y reversión de stock.
@@ -23,6 +23,32 @@ class PedidoController extends Controller
 {
     use AuthorizesRequests; 
     
+    /**
+     * Reverte el stock al inventario. Este proceso debe ejecutarse dentro de una transacción.
+     *
+     * @param Pedido $pedido
+     * @return void
+     */
+    private function revertirStock(Pedido $pedido): void
+    {
+        foreach ($pedido->detallesPedidos as $detalle) {
+            
+            // Bloquear explícitamente el Inventario para la reversión
+            $inventario = Inventario::where('producto_id', $detalle->producto_id)
+                                         ->lockForUpdate()
+                                         ->first();
+
+            if ($inventario) {
+                // Devolver las unidades al inventario
+                $inventario->cantidad_existencias += $detalle->cantidad;
+                $inventario->save();
+            } else {
+                // Advertencia en el log si un inventario relacionado no se encuentra
+                Log::warning("Inventario no encontrado para reversión de Pedido {$pedido->id}, Producto ID: {$detalle->producto_id}");
+            }
+        }
+    }
+
     /**
      * Muestra una lista de todos los pedidos (GET /api/pedidos).
      * Solo para Administradores.
@@ -75,22 +101,31 @@ class PedidoController extends Controller
 
             $detalles = [];
             foreach ($validatedData['detalles'] as $detalle) {
-                // 1. Bloquear el producto (y por ende su inventario) para el control de concurrencia
-                $producto = Producto::lockForUpdate()->find($detalle['producto_id']);
+                
+                $cantidadSolicitada = (int) $detalle['cantidad'];
+                
+                // 1. Bloquear explícitamente el Inventario y obtener el producto relacionado
+                $inventario = Inventario::where('producto_id', $detalle['producto_id'])
+                                             ->lockForUpdate()
+                                             ->first();
+
+                if (!$inventario) {
+                    DB::rollBack();
+                    return response()->json(['error' => 'Inventario no encontrado para el Producto ID: ' . $detalle['producto_id']], Response::HTTP_NOT_FOUND);
+                }
+                
+                $producto = $inventario->producto; 
                 
                 if (!$producto) {
                     DB::rollBack();
                     return response()->json(['error' => 'Producto no encontrado: ID ' . $detalle['producto_id']], Response::HTTP_NOT_FOUND);
                 }
 
-                // Usar el operador nullsafe para obtener el inventario (PHP 8.0+)
-                $inventario = $producto->inventario; // Se asume que la relación existe en el modelo Producto
-                $cantidadSolicitada = (int) $detalle['cantidad'];
                 $precioUnitario = (float) $producto->precio; 
                 $subtotal = $cantidadSolicitada * $precioUnitario;
 
                 // 2. Verificar stock y deducir dentro de la transacción bloqueada
-                if ($inventario && $inventario->cantidad_existencias >= $cantidadSolicitada) {
+                if ($inventario->cantidad_existencias >= $cantidadSolicitada) {
                     $inventario->cantidad_existencias -= $cantidadSolicitada;
                     $inventario->save();
                     $total += $subtotal;
@@ -103,7 +138,7 @@ class PedidoController extends Controller
                 } else {
                     DB::rollBack();
                     // Obtener stock disponible de forma segura para el mensaje de error
-                    $stock = $inventario ? $inventario->cantidad_existencias : 0;
+                    $stock = $inventario->cantidad_existencias;
                     return response()->json([
                         'error' => 'Stock insuficiente para ' . ($producto->nombre ?? 'producto'), 
                         'disponible' => $stock
@@ -159,8 +194,8 @@ class PedidoController extends Controller
      */
     public function update(UpdatePedidoRequest $request, int $id)
     {
-        // Cargar detalles y sus inventarios antes de cualquier operación
-        $pedido = Pedido::with('detallesPedidos.producto.inventario')->find($id); 
+        // Cargar detalles necesarios para la reversión de stock/autorización
+        $pedido = Pedido::with('detallesPedidos')->find($id); 
 
         if (!$pedido) {
             return response()->json(['error' => 'Pedido no encontrado.'], Response::HTTP_NOT_FOUND);
@@ -189,23 +224,15 @@ class PedidoController extends Controller
             try {
                 DB::beginTransaction();
 
-                // Revertir el stock al inventario
-                foreach ($pedido->detallesPedidos as $detalle) {
-                    $producto = Producto::lockForUpdate()->find($detalle->producto_id);
-                    
-                    // Usar operador nullsafe para acceder al inventario de forma segura
-                    $inventario = $producto?->inventario; 
-
-                    if ($inventario) { // Comprobación segura
-                        $inventario->cantidad_existencias += $detalle->cantidad;
-                        $inventario->save();
-                    }
-                }
+                // 1. Revertir el stock (usando el nuevo método privado)
+                $this->revertirStock($pedido);
                 
-                // Actualizar el estado del pedido
+                // 2. Actualizar el estado del pedido
                 $pedido->update(['estado' => 'cancelado']);
+                
                 DB::commit();
 
+                // Cargar relaciones para el recurso final
                 $pedido->load(['user', 'detallesPedidos.producto.inventario']);
                 return response()->json([
                     'message' => 'Pedido CANCELADO con éxito. Stock revertido.', 
@@ -224,7 +251,7 @@ class PedidoController extends Controller
         
         // ** ACTUALIZACIÓN ESTÁNDAR (Para otros estados como 'enviado', 'entregado' por Admin) **
         
-        // Seguridad: No permitir cambiar el estado si ya está entregado o cancelado (salvo la propia cancelación manejada arriba)
+        // Seguridad: No permitir cambiar el estado si ya está entregado o cancelado 
         if ($pedido->estado === 'entregado' || $pedido->estado === 'cancelado') {
             return response()->json(['error' => 'No se puede modificar un pedido que ya está en estado "entregado" o "cancelado".'], Response::HTTP_FORBIDDEN);
         }
@@ -249,11 +276,10 @@ class PedidoController extends Controller
 
     /**
      * Elimina un pedido y revierte el inventario (DELETE /api/pedidos/{id}).
-     * Nota: Normalmente, solo los Admins pueden eliminar, y solo pedidos no entregados/cancelados.
      */
     public function destroy(int $id)
     {
-        $pedido = Pedido::with('detallesPedidos.producto.inventario')->find($id);
+        $pedido = Pedido::with('detallesPedidos')->find($id);
 
         if (!$pedido) {
             return response()->json(['error' => 'Pedido no encontrado.'], Response::HTTP_NOT_FOUND);
@@ -270,21 +296,10 @@ class PedidoController extends Controller
         try {
             DB::beginTransaction();
 
-            // 1. Revertir el stock al inventario
-            foreach ($pedido->detallesPedidos as $detalle) {
-                // Bloquear para garantizar atomicidad
-                $producto = Producto::lockForUpdate()->find($detalle->producto_id);
-                
-                // Usar operador nullsafe para acceder al inventario de forma segura
-                $inventario = $producto?->inventario; 
+            // 1. Revertir el stock (usando el nuevo método privado)
+            $this->revertirStock($pedido);
 
-                if ($inventario) { // Comprobación segura
-                    $inventario->cantidad_existencias += $detalle->cantidad;
-                    $inventario->save();
-                }
-            }
-
-            // 2. Eliminar el pedido (lo cual eliminará los detalles en cascada si está configurado en la DB)
+            // 2. Eliminar el pedido
             $pedido->delete();
             
             DB::commit();
