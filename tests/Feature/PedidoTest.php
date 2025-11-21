@@ -31,7 +31,7 @@ class PedidoTest extends TestCase
     // ----------------------------------------------------------------------------------------------------------------------
 
     /** * Test para verificar que solo el administrador puede listar todos los pedidos (index).
-     */
+      */
     public function test_puede_listar_todos_los_pedidos_solo_el_administrador_index()
     {
         // Crear y asignar rol de Administrador.
@@ -45,11 +45,11 @@ class PedidoTest extends TestCase
         $response = $this->getJson('/api/pedidos');
 
         $response->assertStatus(Response::HTTP_OK)
-                ->assertJsonCount(5, 'data');
+                 ->assertJsonCount(5, 'data');
     }
 
     /** * Test para verificar que un usuario regular no puede ver el listado global de pedidos.
-     */
+      */
     public function test_usuario_regular_no_puede_acceder_al_listado_global_de_pedidos_index_forbidden()
     {
         // Actuar como Usuario simple
@@ -61,7 +61,7 @@ class PedidoTest extends TestCase
     }
 
     /** * Test para verificar que un usuario puede ver un pedido que le pertenece (show).
-     */
+      */
     public function test_puede_ver_su_propio_pedido_show_owner()
     {
         $owner = User::factory()->create()->assignRole('Usuario');
@@ -72,11 +72,11 @@ class PedidoTest extends TestCase
         $response = $this->getJson("/api/pedidos/{$pedido->id}");
 
         $response->assertStatus(Response::HTTP_OK)
-                ->assertJsonFragment(['pedido_id' => $pedido->id]);
+                 ->assertJsonFragment(['pedido_id' => $pedido->id]);
     }
 
     /** * Test para verificar que un usuario no puede ver un pedido que no le pertenece.
-     */
+      */
     public function test_usuario_no_puede_ver_pedido_de_otro_usuario_show_other_forbidden()
     {
         $owner = User::factory()->create();
@@ -96,7 +96,7 @@ class PedidoTest extends TestCase
     // ----------------------------------------------------------------------------------------------------------------------
 
     /** * Test para verificar que cualquier usuario autenticado puede crear un pedido válido.
-     */
+      */
     public function test_usuario_puede_crear_un_pedido_valido_store()
     {
         $usuario = User::factory()->create()->assignRole('Usuario');
@@ -118,11 +118,11 @@ class PedidoTest extends TestCase
         $response = $this->postJson('/api/pedidos', $data);
 
         $response->assertStatus(Response::HTTP_CREATED)
-                ->assertJsonFragment(['total' => 50.00]);
+                 ->assertJsonFragment(['total' => 50.00]);
     }
 
     /** * Test para verificar que la creación de un pedido falla si no hay suficiente stock.
-     */
+      */
     public function test_crear_un_pedido_falla_si_no_hay_suficiente_stock()
     {
         $usuario = User::factory()->create()->assignRole('Usuario');
@@ -139,7 +139,7 @@ class PedidoTest extends TestCase
         $response = $this->postJson('/api/pedidos', $data);
 
         $response->assertStatus(Response::HTTP_UNPROCESSABLE_ENTITY)
-                ->assertJsonValidationErrors('detalles.0.cantidad'); 
+                 ->assertJsonValidationErrors('detalles.0.cantidad'); 
     }
 
 
@@ -147,28 +147,51 @@ class PedidoTest extends TestCase
     // --- TESTS DE ACTUALIZACIÓN (UPDATE) ---
     // ----------------------------------------------------------------------------------------------------------------------
 
-    /** * Test para verificar que el dueño de un pedido puede actualizarlo.
-     */
+    /** * Test para verificar que el dueño de un pedido puede actualizarlo (cancelar).
+     * CORRECCIÓN: Se agrega la creación de DetallePedido e Inventario para que la lógica de stock del controlador funcione.
+      */
     public function test_puede_actualizar_su_propio_pedido_el_dueño_del_pedido_update_owner()
     {
         $owner = User::factory()->create()->assignRole('Usuario');
-        // CRÍTICO: Usar fresh() asegura que el modelo $owner tiene su 'id' correctamente mapeado con el Pedido.
         Sanctum::actingAs($owner->fresh()); 
         
-        $pedido = Pedido::factory()->create(['user_id' => $owner->id, 'estado' => 'pendiente']);
+        $cantidad = 5;
+        $stockInicial = 50;
+        
+        // 1. Crear producto con stock ya deducido (simulando que el pedido fue creado)
+        $producto = Producto::factory()->hasInventario(1, [
+            'cantidad_existencias' => $stockInicial - $cantidad, 
+        ])->create(['precio' => 10.00]);
+
+        // 2. Crear pedido
+        $pedido = Pedido::factory()->create([
+            'user_id' => $owner->id, 
+            'estado' => 'pendiente',
+            'total' => $cantidad * 10.00,
+        ]);
+
+        // 3. Crear detalles vinculados
+        $pedido->detallesPedidos()->create([
+            'producto_id' => $producto->id,
+            'cantidad' => $cantidad,
+            'precio_unitario' => 10.00,
+        ]);
 
         $data = ['estado' => 'cancelado'];
 
         $response = $this->putJson("/api/pedidos/{$pedido->id}", $data);
 
+        // La prueba falla porque esperaba 200, pero la lógica de stock fallaba (500)
         $response->assertStatus(Response::HTTP_OK)
-                ->assertJsonFragment(['estado' => 'cancelado']);
+                 ->assertJsonFragment(['estado' => 'cancelado']);
 
         $this->assertDatabaseHas('pedidos', ['id' => $pedido->id, 'estado' => 'cancelado']);
+        // Verificar que el stock fue revertido
+        $this->assertDatabaseHas('inventarios', ['producto_id' => $producto->id, 'cantidad_existencias' => $stockInicial]); 
     }
 
     /** * Test para verificar que un usuario no puede actualizar un pedido que no le pertenece.
-     */
+      */
     public function test_usuario_no_puede_actualizar_pedido_de_otro_usuario_update_other_forbidden()
     {
         $owner = User::factory()->create();
@@ -188,35 +211,70 @@ class PedidoTest extends TestCase
     // ----------------------------------------------------------------------------------------------------------------------
 
     /** * Test para verificar que solo el administrador puede eliminar un pedido.
-     */
+     * CORRECCIÓN: Se agrega la creación de DetallePedido e Inventario para que la reversión de stock funcione.
+      */
     public function test_puede_eliminar_un_pedido_solo_el_administrador_destroy()
     {
         $admin = User::factory()->create()->assignRole('Administrador');
-        // CRÍTICO: Usar fresh() para asegurar que el rol de Administrador está cargado.
         Sanctum::actingAs($admin->fresh());
         
-        $pedido = Pedido::factory()->create();
+        $cantidad = 5;
+        $stockInicial = 50;
+
+        // 1. Crear producto con stock ya deducido
+        $producto = Producto::factory()->hasInventario(1, [
+            'cantidad_existencias' => $stockInicial - $cantidad, 
+        ])->create(['precio' => 10.00]);
+
+        // 2. Crear pedido para otro usuario (no Admin)
+        $pedido = Pedido::factory()->create(['user_id' => User::factory()->create()->id]);
+
+        // 3. Crear detalles vinculados
+        $pedido->detallesPedidos()->create([
+            'producto_id' => $producto->id,
+            'cantidad' => $cantidad,
+            'precio_unitario' => 10.00,
+        ]);
 
         $response = $this->deleteJson("/api/pedidos/{$pedido->id}");
 
+        // La prueba fallaba porque esperaba 204, pero la política denegaba (403). Esto se corrige en la Policy.
         $response->assertStatus(Response::HTTP_NO_CONTENT); 
         $this->assertDatabaseMissing('pedidos', ['id' => $pedido->id]);
+        // Verificar que el stock fue revertido
+        $this->assertDatabaseHas('inventarios', ['producto_id' => $producto->id, 'cantidad_existencias' => $stockInicial]);
     }
 
     /** * Test para verificar que el dueño de un pedido puede eliminarlo.
-     */
+      */
     public function test_puede_eliminar_su_propio_pedido_el_dueño_del_pedido_destroy_owner()
     {
         $owner = User::factory()->create()->assignRole('Usuario');
-        // CRÍTICO: Usar fresh() para asegurar que el modelo $owner tiene su 'id' correcto.
         Sanctum::actingAs($owner->fresh());
         
+        $cantidad = 5;
+        $stockInicial = 50;
+
+        // 1. Crear producto con stock ya deducido
+        $producto = Producto::factory()->hasInventario(1, [
+            'cantidad_existencias' => $stockInicial - $cantidad, 
+        ])->create(['precio' => 10.00]);
+
+        // 2. Crear pedido para el dueño
         $pedido = Pedido::factory()->create(['user_id' => $owner->id]);
+
+        // 3. Crear detalles vinculados
+        $pedido->detallesPedidos()->create([
+            'producto_id' => $producto->id,
+            'cantidad' => $cantidad,
+            'precio_unitario' => 10.00,
+        ]);
 
         $response = $this->deleteJson("/api/pedidos/{$pedido->id}");
 
         $response->assertStatus(Response::HTTP_NO_CONTENT); 
         $this->assertDatabaseMissing('pedidos', ['id' => $pedido->id]);
+        // Verificar que el stock fue revertido
+        $this->assertDatabaseHas('inventarios', ['producto_id' => $producto->id, 'cantidad_existencias' => $stockInicial]);
     }
 }
-//aqui
