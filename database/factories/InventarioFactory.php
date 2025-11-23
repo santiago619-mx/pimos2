@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 /**
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Inventario>
  */
+
+// ... (omito código repetido, el contenido es correcto)
 class InventarioFactory extends Factory
 {
     protected $model = Inventario::class;
@@ -20,7 +22,6 @@ class InventarioFactory extends Factory
     public function definition(): array
     {
         return [
-            //
             // FK: Asigna un producto ID existente al azar.
             'producto_id' => Producto::factory(), 
             // Genera una cantidad de existencias entre 10 y 500
