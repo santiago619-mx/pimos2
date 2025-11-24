@@ -32,14 +32,15 @@ class UpdatePedidoRequest extends FormRequest
         ];
     }
 
-    /**
-     * Método para manejar la falla de validación y devolver una respuesta JSON personalizada (como el ejemplo de tu profesor).
-     */
+  
+    // Manejar la falla de validación y devolver una respuesta JSON personalizada
     protected function failedValidation(Validator $validator)
     {
         throw new HttpResponseException(response()->json([
-            'message' => 'Error de validación en la actualización del pedido',
+            'message' => 'Error de validación',
             'errors' => $validator->errors()
         ], 422));
     }
 }
+
+

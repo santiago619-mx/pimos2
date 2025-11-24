@@ -28,4 +28,13 @@ class UpdateInventarioRequest extends FormRequest
             'cantidad_existencias' => 'sometimes|required|integer|min:0',
         ];
     }
+    
+    // Manejar la falla de validación y devolver una respuesta JSON personalizada
+    protected function failedValidation(Validator $validator)
+    {
+        throw new HttpResponseException(response()->json([
+            'message' => 'Error de validación',
+            'errors' => $validator->errors()
+        ], 422));
+    }
 }

@@ -173,12 +173,12 @@ return [
 
                 // Example of Bearer
                 // Sanctum Authentication 
-                'bearer_token' => [ 
-                    'type' => 'apiKey',
-                    'description' => 'Sanctum bearer token',
-                    'name' => 'Authorization',
-                    'in' => 'header',
-                ],
+              //  'bearer_token' => [ 
+                  //  'type' => 'apiKey',
+                  //  'description' => 'Sanctum bearer token',
+                   // 'name' => 'Authorization',
+                   // 'in' => 'header',
+              //  ],
 
                 /*
                  * Examples of Security schemes

@@ -46,4 +46,13 @@ class UpdateProductoRequest extends FormRequest
             'precio' => 'sometimes|required|numeric|min:0.01',
         ];
     }
+    
+    // Manejar la falla de validación y devolver una respuesta JSON personalizada
+    protected function failedValidation(Validator $validator)
+    {
+        throw new HttpResponseException(response()->json([
+            'message' => 'Error de validación',
+            'errors' => $validator->errors()
+        ], 422));
+    }
 }

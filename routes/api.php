@@ -19,6 +19,11 @@ use App\Http\Controllers\Api\LoginController;
 // --- RUTAS PÚBLICAS (NO REQUIEREN AUTENTICACIÓN) ---
 Route::post('login', [LoginController::class, 'store']); // Ruta para el inicio de sesión
 
+// Esto ayuda a evitar problemas de CORS en aplicaciones web que consumen esta API 
+Route::options('{all:.*}', function(){
+    return response()->json();
+});
+
 // --- RUTAS PROTEGIDAS POR AUTENTICACIÓN (REQUIEREN TOKEN) ---
 Route::middleware('auth:sanctum')->group(function () { 
 
