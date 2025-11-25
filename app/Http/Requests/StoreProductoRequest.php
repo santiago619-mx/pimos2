@@ -3,6 +3,12 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+// [1] IMPORTACIÓN REQUERIDA: Define la clase Validator correctamente
+use Illuminate\Contracts\Validation\Validator;
+// [2] IMPORTACIÓN REQUERIDA: Para usar HttpResponseException
+use Illuminate\Http\Exceptions\HttpResponseException;
+// También incluir las reglas de validación que se usan en las reglas (aunque no es la causa del error)
+use Illuminate\Validation\Rule;
 
 /**
  * Valida los datos al crear un nuevo Producto (gomita).
@@ -16,7 +22,8 @@ class StoreProductoRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Si tienes autenticación, puedes verificar roles aquí (ej: $this->user()->can('create-product'))
+        // NOTA: En este contexto, si la autorización se maneja con Spatie en el Controller,
+        // devolver 'true' aquí es común.
         return true; 
     }
 
@@ -29,7 +36,7 @@ class StoreProductoRequest extends FormRequest
     {
         return [
             // El nombre debe ser obligatorio, cadena, máximo 255 y único en la tabla 'productos'
-            'nombre_gomita' => 'required|string|max:255|unique:productos,nombre_gomita',
+            'nombre_gomita' => ['required', 'string', 'max:255', Rule::unique('productos', 'nombre_gomita')],
             'sabor' => 'required|string|max:255',
             'tamano' => 'required|string|max:255',
             // El precio es obligatorio, numérico y debe ser mayor que 0.01
@@ -39,13 +46,18 @@ class StoreProductoRequest extends FormRequest
         ];
     }
     
-    // Manejar la falla de validación y devolver una respuesta JSON personalizada
+    /**
+     * Manejar la falla de validación y devolver una respuesta JSON personalizada
+     *
+     * @param \Illuminate\Contracts\Validation\Validator $validator
+     * @throws \Illuminate\Http\Exceptions\HttpResponseException
+     */
     protected function failedValidation(Validator $validator)
     {
+        // La firma de este método ahora es compatible con el FormRequest de Laravel.
         throw new HttpResponseException(response()->json([
             'message' => 'Error de validación',
             'errors' => $validator->errors()
         ], 422));
     }
 }
-

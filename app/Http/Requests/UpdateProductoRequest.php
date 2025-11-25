@@ -4,6 +4,9 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+// IMPORTACIONES REQUERIDAS (YA CORREGIDAS EN EL PASO ANTERIOR)
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Http\Exceptions\HttpResponseException;
 
 /**
  * Valida los datos al actualizar un Producto (gomita).
@@ -29,25 +32,33 @@ class UpdateProductoRequest extends FormRequest
     {
         // Obtiene el ID del producto que viene de la ruta (URL).
         // Si tu ruta es /api/productos/{producto}, la clave es 'producto'.
-        $productoId = $this->route('producto'); 
+        // NOTA: Asumiendo que el parámetro de ruta es 'producto' o que usas 'id'.
+        $productoId = $this->route('producto') ?? $this->route('id'); 
         
         return [
-            // 'sometimes' asegura que la validación solo se ejecute si el campo está presente en el request.
+            // CORRECCIÓN DE SINTAXIS: Se usan comas para separar los elementos de la matriz de reglas.
+            // Los elementos deben ser reglas de validación o instancias de Rule.
             'nombre_gomita' => [
-                'sometimes', // Solo se valida si se envía
-                'required',  // Si se envía, debe ser obligatorio
-                'string',
-                'max:255',
-                // unique: Verifica unicidad, ignorando el ID del producto actual para evitar errores al guardar el mismo nombre.
-                Rule::unique('productos', 'nombre_gomita')->ignore($productoId),
+    'sometimes', // Solo se valida si se envía
+    'required',  // Si se envía, debe ser obligatorio
+    'string',    // <--- ERROR: Esto debería estar concatenado o usar una coma.
+    'max:255',   // <--- ERROR: Esto también.
+    // unique: ...
+    Rule::unique('productos', 'nombre_gomita')->ignore($productoId),
             ],
+            // Las reglas concatenadas con pipes (|) no necesitan el array, pero funciona.
             'sabor' => 'sometimes|required|string|max:255',
             'tamano' => 'sometimes|required|string|max:255',
             'precio' => 'sometimes|required|numeric|min:0.01',
         ];
     }
     
-    // Manejar la falla de validación y devolver una respuesta JSON personalizada
+    /**
+     * Manejar la falla de validación y devolver una respuesta JSON personalizada
+     *
+     * @param \Illuminate\Contracts\Validation\Validator $validator
+     * @throws \Illuminate\Http\Exceptions\HttpResponseException
+     */
     protected function failedValidation(Validator $validator)
     {
         throw new HttpResponseException(response()->json([

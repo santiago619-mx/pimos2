@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\URL;  // Para forzar HTTPS en URLs (si es necesario)
 
 class AppServiceProvider extends ServiceProvider
 {
