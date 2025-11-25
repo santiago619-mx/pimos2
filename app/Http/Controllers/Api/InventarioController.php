@@ -5,13 +5,18 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Inventario;
 use App\Http\Resources\InventarioResource;
-use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response; // Importar la clase Response para los códigos de estado HTTP
+use App\Http\Requests\StoreInventarioRequest; // Importar StoreInventarioRequest
+use App\Http\Requests\UpdateInventarioRequest; // Importar UpdateInventarioRequest
+use Symfony\Component\HttpFoundation\Response;
 
 // Importar el trait AuthorizesRequests para la autorización de políticas
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests; 
 
 /**
+ * @OA\Tag(
+ * name="Inventario",
+ * description="Operaciones de gestión de stock de productos"
+ * )
  * Gestiona la lógica CRUD para el Inventario (Stock).
  */
 class InventarioController extends Controller
@@ -19,11 +24,21 @@ class InventarioController extends Controller
     // Usar el trait AuthorizesRequests
     use AuthorizesRequests; 
 
-    // Se elimina el método __construct y los middlewares.
-    // La autorización se maneja directamente en cada método con $this->authorize.
-    
     /**
-     * Muestra una lista de todos los registros de inventario (GET /api/inventario).
+     * @OA\Get(
+     * path="/api/inventario",
+     * summary="Consultar todo el inventario",
+     * description="Retorna una lista de todos los registros de inventario con los productos asociados.",
+     * tags={"Inventario"},
+     * security={{"bearer_token":{}}},
+     * @OA\Response(
+     * response=200,
+     * description="Operación exitosa",
+     * @OA\JsonContent(type="array", @OA\Items(ref="#/components/schemas/InventarioResource"))
+     * ),
+     * @OA\Response(response=403, description="No autorizado"),
+     * @OA\Response(response=500, description="Error interno del servidor")
+     * )
      */
     public function index()
     {
@@ -39,18 +54,37 @@ class InventarioController extends Controller
     }
     
     /**
-     * Almacena un nuevo registro de inventario (POST /api/inventario).
+     * @OA\Post(
+     * path="/api/inventario",
+     * summary="Crear nuevo registro de inventario",
+     * description="Crea un nuevo registro de stock para un producto que no tenga uno.",
+     * tags={"Inventario"},
+     * security={{"bearer_token":{}}},
+     * @OA\RequestBody(
+     * required=true,
+     * @OA\JsonContent(
+     * required={"producto_id","cantidad_existencias"},
+     * @OA\Property(property="producto_id", type="integer", example=1, description="ID del producto a inventariar."),
+     * @OA\Property(property="cantidad_existencias", type="integer", example=50, description="Cantidad inicial de existencias.")
+     * )
+     * ),
+     * @OA\Response(
+     * response=201,
+     * description="Registro de inventario creado con éxito.",
+     * @OA\JsonContent(ref="#/components/schemas/InventarioResource")
+     * ),
+     * @OA\Response(response=403, description="No autorizado"),
+     * @OA\Response(response=422, description="Error de validación")
+     * )
      */
-    public function store(Request $request)
+    // Se usa el Request personalizado para la validación
+    public function store(StoreInventarioRequest $request)
     {
         // Autorización: Permiso de Creación
         $this->authorize('inventario.crear'); 
 
-        // Validación: el producto debe existir y no debe tener ya un registro de inventario
-        $validated = $request->validate([
-            'producto_id' => 'required|exists:productos,id|unique:inventarios,producto_id',
-            'cantidad_existencias' => 'required|integer|min:0',
-        ]);
+        // Usamos safe() para obtener solo los datos validados y prevenir mass assignment
+        $validated = $request->safe()->only(['producto_id', 'cantidad_existencias']);
 
         try {
             $inventario = Inventario::create($validated);
@@ -68,7 +102,27 @@ class InventarioController extends Controller
     }
     
     /**
-     * Muestra un registro de inventario específico (GET /api/inventario/{id}).
+     * @OA\Get(
+     * path="/api/inventario/{id}",
+     * summary="Consultar un registro de inventario",
+     * description="Retorna un registro de inventario específico por ID.",
+     * tags={"Inventario"},
+     * security={{"bearer_token":{}}},
+     * @OA\Parameter(
+     * name="id",
+     * in="path",
+     * required=true,
+     * @OA\Schema(type="integer"),
+     * description="ID del registro de inventario."
+     * ),
+     * @OA\Response(
+     * response=200,
+     * description="Operación exitosa",
+     * @OA\JsonContent(ref="#/components/schemas/InventarioResource")
+     * ),
+     * @OA\Response(response=403, description="No autorizado"),
+     * @OA\Response(response=404, description="Registro no encontrado")
+     * )
      */
     public function show(Inventario $inventario)
     {
@@ -80,16 +134,44 @@ class InventarioController extends Controller
     }
 
     /**
-     * Actualiza la cantidad de existencias (PUT/PATCH /api/inventario/{id}).
+     * @OA\Put(
+     * path="/api/inventario/{id}",
+     * summary="Actualizar stock (cantidad)",
+     * description="Actualiza la cantidad de existencias de un registro de inventario. Solo se puede actualizar la cantidad.",
+     * tags={"Inventario"},
+     * security={{"bearer_token":{}}},
+     * @OA\Parameter(
+     * name="id",
+     * in="path",
+     * required=true,
+     * @OA\Schema(type="integer"),
+     * description="ID del registro de inventario a actualizar."
+     * ),
+     * @OA\RequestBody(
+     * required=true,
+     * @OA\JsonContent(
+     * required={"cantidad_existencias"},
+     * @OA\Property(property="cantidad_existencias", type="integer", example=100, description="Nueva cantidad de existencias.")
+     * )
+     * ),
+     * @OA\Response(
+     * response=200,
+     * description="Inventario actualizado con éxito.",
+     * @OA\JsonContent(ref="#/components/schemas/InventarioResource")
+     * ),
+     * @OA\Response(response=403, description="No autorizado"),
+     * @OA\Response(response=422, description="Error de validación"),
+     * @OA\Response(response=404, description="Registro no encontrado")
+     * )
      */
-    public function update(Request $request, Inventario $inventario)
+    // Se usa el Request personalizado para la validación
+    public function update(UpdateInventarioRequest $request, Inventario $inventario)
     {
         // Autorización: Permiso de Actualización de Stock
         $this->authorize('inventario.ajustar_stock');
 
-        $validated = $request->validate([
-            'cantidad_existencias' => 'sometimes|required|integer|min:0',
-        ]);
+        // Usamos safe() para obtener solo los datos validados y prevenir mass assignment
+        $validated = $request->safe()->only(['cantidad_existencias']);
 
         try {
             $inventario->update($validated);
@@ -104,7 +186,23 @@ class InventarioController extends Controller
     }
     
     /**
-     * Elimina un registro de inventario (DELETE /api/inventario/{id}).
+     * @OA\Delete(
+     * path="/api/inventario/{id}",
+     * summary="Eliminar registro de inventario",
+     * description="Elimina un registro de inventario (stock) por ID.",
+     * tags={"Inventario"},
+     * security={{"bearer_token":{}}},
+     * @OA\Parameter(
+     * name="id",
+     * in="path",
+     * required=true,
+     * @OA\Schema(type="integer"),
+     * description="ID del registro de inventario a eliminar."
+     * ),
+     * @OA\Response(response=204, description="Registro de inventario eliminado con éxito. (No Content)"),
+     * @OA\Response(response=403, description="No autorizado"),
+     * @OA\Response(response=404, description="Registro no encontrado")
+     * )
      */
     public function destroy(Inventario $inventario)
     {

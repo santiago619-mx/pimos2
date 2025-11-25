@@ -4,6 +4,9 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+use Illuminate\Contracts\Validation\Validator;  // Importar la interfaz Validator  
+use Illuminate\Http\Exceptions\HttpResponseException;  // Importar la excepción HttpResponseException  
+
 class UpdateInventarioRequest extends FormRequest
 {
     /**
@@ -11,8 +14,6 @@ class UpdateInventarioRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Cambia a 'true' o implementa tu lógica de autorización
-        // Ejemplo: return $this->user()->can('update-inventory');
         return true;
     }
 
@@ -33,7 +34,7 @@ class UpdateInventarioRequest extends FormRequest
     protected function failedValidation(Validator $validator)
     {
         throw new HttpResponseException(response()->json([
-            'message' => 'Error de validación',
+            'message' => 'Error de validación al actualizar inventario',
             'errors' => $validator->errors()
         ], 422));
     }

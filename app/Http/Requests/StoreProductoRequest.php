@@ -3,11 +3,8 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-// [1] IMPORTACIÓN REQUERIDA: Define la clase Validator correctamente
 use Illuminate\Contracts\Validation\Validator;
-// [2] IMPORTACIÓN REQUERIDA: Para usar HttpResponseException
 use Illuminate\Http\Exceptions\HttpResponseException;
-// También incluir las reglas de validación que se usan en las reglas (aunque no es la causa del error)
 use Illuminate\Validation\Rule;
 
 /**
@@ -22,8 +19,7 @@ class StoreProductoRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // NOTA: En este contexto, si la autorización se maneja con Spatie en el Controller,
-        // devolver 'true' aquí es común.
+        // La autorización se maneja en el controlador con $this->authorize('productos.crear');
         return true; 
     }
 
@@ -54,9 +50,8 @@ class StoreProductoRequest extends FormRequest
      */
     protected function failedValidation(Validator $validator)
     {
-        // La firma de este método ahora es compatible con el FormRequest de Laravel.
         throw new HttpResponseException(response()->json([
-            'message' => 'Error de validación',
+            'message' => 'Error de validación al crear producto',
             'errors' => $validator->errors()
         ], 422));
     }

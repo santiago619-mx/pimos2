@@ -1,0 +1,675 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "API Documentation",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000"
+        }
+    ],
+    "paths": {
+        "/api/inventario": {
+            "get": {
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Consultar todo el inventario",
+                "description": "Retorna una lista de todos los registros de inventario con los productos asociados.",
+                "operationId": "4addcd7798fe1538104ed903e872178f",
+                "responses": {
+                    "200": {
+                        "description": "Operación exitosa",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/InventarioResource"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "500": {
+                        "description": "Error interno del servidor"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Crear nuevo registro de inventario",
+                "description": "Crea un nuevo registro de stock para un producto que no tenga uno.",
+                "operationId": "4bdb1deb011d85be4aeb4a74c1fddb5c",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "producto_id",
+                                    "cantidad_existencias"
+                                ],
+                                "properties": {
+                                    "producto_id": {
+                                        "description": "ID del producto a inventariar.",
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "cantidad_existencias": {
+                                        "description": "Cantidad inicial de existencias.",
+                                        "type": "integer",
+                                        "example": 50
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registro de inventario creado con éxito.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InventarioResource"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "422": {
+                        "description": "Error de validación"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            }
+        },
+        "/api/inventario/{id}": {
+            "get": {
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Consultar un registro de inventario",
+                "description": "Retorna un registro de inventario específico por ID.",
+                "operationId": "f70d41595ebb664771311fdb35e14181",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del registro de inventario.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operación exitosa",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InventarioResource"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Registro no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Actualizar stock (cantidad)",
+                "description": "Actualiza la cantidad de existencias de un registro de inventario. Solo se puede actualizar la cantidad.",
+                "operationId": "93da66c8bc6b35165f6118fbd75e9097",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del registro de inventario a actualizar.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "cantidad_existencias"
+                                ],
+                                "properties": {
+                                    "cantidad_existencias": {
+                                        "description": "Nueva cantidad de existencias.",
+                                        "type": "integer",
+                                        "example": 100
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Inventario actualizado con éxito.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/InventarioResource"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "422": {
+                        "description": "Error de validación"
+                    },
+                    "404": {
+                        "description": "Registro no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Inventario"
+                ],
+                "summary": "Eliminar registro de inventario",
+                "description": "Elimina un registro de inventario (stock) por ID.",
+                "operationId": "37a3b09f76b43fa8a03dbe0009568319",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del registro de inventario a eliminar.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Registro de inventario eliminado con éxito. (No Content)"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Registro no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            }
+        },
+        "/api/productos": {
+            "get": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Consultar lista de productos",
+                "description": "Retorna una lista paginada de todos los productos disponibles con el stock actual.",
+                "operationId": "70a301af8ea04ce2f2596a58758632cd",
+                "responses": {
+                    "200": {
+                        "description": "Operación exitosa",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductoCollection"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "500": {
+                        "description": "Error interno del servidor"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Crear un nuevo producto",
+                "description": "Registra un nuevo producto. Opcionalmente, permite definir el stock inicial.",
+                "operationId": "4ff8851cb6bfe92aa226cdc804917ff0",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "nombre_gomita",
+                                    "sabor",
+                                    "tamano",
+                                    "precio"
+                                ],
+                                "properties": {
+                                    "nombre_gomita": {
+                                        "description": "Nombre del producto, debe ser único.",
+                                        "type": "string",
+                                        "example": "Oso Gomita Clásico"
+                                    },
+                                    "sabor": {
+                                        "description": "Sabor del producto.",
+                                        "type": "string",
+                                        "example": "Fresa Ácida"
+                                    },
+                                    "tamano": {
+                                        "description": "Tamaño del producto.",
+                                        "type": "string",
+                                        "example": "Mediano"
+                                    },
+                                    "precio": {
+                                        "description": "Precio unitario.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 5.5
+                                    },
+                                    "cantidad_existencias": {
+                                        "description": "Stock inicial (opcional).",
+                                        "type": "integer",
+                                        "example": 100,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Producto creado con éxito.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductoResource"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "422": {
+                        "description": "Error de validación"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            }
+        },
+        "/api/productos/{id}": {
+            "get": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Consultar un producto",
+                "description": "Retorna la información detallada de un producto específico, incluyendo su stock.",
+                "operationId": "1884f1fc784a80f4976ac9c8d4ce887b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Operación exitosa",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductoResource"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Producto no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Actualizar producto",
+                "description": "Actualiza los detalles de un producto existente por ID. El stock debe actualizarse en el endpoint de Inventario.",
+                "operationId": "20275afdbab1759ad2d46f3dcfbeaeeb",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto a actualizar.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "nombre_gomita": {
+                                        "description": "Nombre del producto, debe ser único.",
+                                        "type": "string",
+                                        "example": "Oso Gomita Clásico 2.0"
+                                    },
+                                    "precio": {
+                                        "description": "Nuevo precio unitario.",
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 6
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Producto actualizado con éxito.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProductoResource"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "422": {
+                        "description": "Error de validación"
+                    },
+                    "404": {
+                        "description": "Producto no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Productos"
+                ],
+                "summary": "Eliminar producto",
+                "description": "Elimina un producto por ID. Esto también eliminará su registro de inventario asociado.",
+                "operationId": "ea733033fbff1681e04f8c4d0e11e0bc",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID del producto a eliminar.",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Producto eliminado con éxito. (No Content)"
+                    },
+                    "403": {
+                        "description": "No autorizado"
+                    },
+                    "404": {
+                        "description": "Producto no encontrado"
+                    }
+                },
+                "security": [
+                    {
+                        "bearer_token": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "InventarioResource": {
+                "title": "Inventario Resource",
+                "description": "Estructura de la respuesta para un registro de Inventario",
+                "properties": {
+                    "id": {
+                        "description": "ID del registro de inventario",
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "tipo": {
+                        "type": "string",
+                        "example": "inventario"
+                    },
+                    "atributos": {
+                        "properties": {
+                            "cantidad_existencias": {
+                                "type": "integer",
+                                "example": 100
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "relaciones": {
+                        "properties": {
+                            "producto": {
+                                "description": "Detalles básicos del producto",
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "nombre": {
+                                        "type": "string",
+                                        "example": "Gomita de Fresa"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "ProductoCollection": {
+                "title": "Producto Collection",
+                "description": "Estructura de la respuesta para el listado de Productos",
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "properties": {
+                                "id": {
+                                    "type": "integer",
+                                    "example": 1
+                                },
+                                "tipo": {
+                                    "type": "string",
+                                    "example": "producto"
+                                },
+                                "atributos": {
+                                    "properties": {
+                                        "nombre": {
+                                            "type": "string",
+                                            "example": "Oso Gomita Clásico"
+                                        },
+                                        "sabor": {
+                                            "type": "string",
+                                            "example": "Fresa Ácida"
+                                        },
+                                        "precio": {
+                                            "type": "number",
+                                            "format": "float",
+                                            "example": 5.5
+                                        },
+                                        "stock_actual": {
+                                            "description": "Cantidad de existencias en inventario",
+                                            "type": "integer",
+                                            "example": 100
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "type": "object"
+                        }
+                    }
+                },
+                "type": "object"
+            },
+            "ProductoResource": {
+                "title": "Producto Resource",
+                "description": "Estructura de la respuesta detallada para un solo Producto",
+                "properties": {
+                    "id": {
+                        "description": "ID del producto",
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "tipo": {
+                        "type": "string",
+                        "example": "producto"
+                    },
+                    "atributos": {
+                        "properties": {
+                            "nombre": {
+                                "type": "string",
+                                "example": "Oso Gomita Clásico"
+                            },
+                            "sabor": {
+                                "type": "string",
+                                "example": "Fresa Ácida"
+                            },
+                            "tamano": {
+                                "type": "string",
+                                "example": "Mediano"
+                            },
+                            "precio": {
+                                "type": "number",
+                                "format": "float",
+                                "example": 5.5
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "relaciones": {
+                        "$ref": "#/components/schemas/ProductoResourceRelations"
+                    }
+                },
+                "type": "object"
+            },
+            "ProductoResourceRelations": {
+                "properties": {
+                    "inventario": {
+                        "oneOf": [
+                            {
+                                "$ref": "#/components/schemas/InventarioResource"
+                            }
+                        ],
+                        "nullable": true,
+                        "description": "Stock asociado al producto, si existe."
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "name": "Authorization",
+                "in": "header",
+                "bearerFormat": "token",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Inventario",
+            "description": "Operaciones de gestión de stock de productos"
+        },
+        {
+            "name": "Productos",
+            "description": "Operaciones de gestión de productos (gomitas)"
+        }
+    ]
+}

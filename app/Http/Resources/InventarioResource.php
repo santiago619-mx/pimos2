@@ -5,6 +5,31 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
+/**
+ * @OA\Schema(
+ * schema="InventarioResource",
+ * title="Inventario Resource",
+ * description="Estructura de la respuesta para un registro de Inventario",
+ * @OA\Property(property="id", type="integer", example=5, description="ID del registro de inventario"),
+ * @OA\Property(property="tipo", type="string", example="inventario"),
+ * @OA\Property(
+ * property="atributos",
+ * type="object",
+ * @OA\Property(property="cantidad_existencias", type="integer", example=100)
+ * ),
+ * @OA\Property(
+ * property="relaciones",
+ * type="object",
+ * @OA\Property(
+ * property="producto",
+ * type="object",
+ * description="Detalles básicos del producto",
+ * @OA\Property(property="id", type="integer", example=1),
+ * @OA\Property(property="nombre", type="string", example="Gomita de Fresa")
+ * )
+ * )
+ * )
+ */
 class InventarioResource extends JsonResource
 {
     /**
