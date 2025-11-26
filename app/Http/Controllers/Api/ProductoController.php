@@ -223,7 +223,13 @@ class ProductoController extends Controller
      * @OA\Schema(type="integer"),
      * description="ID del producto a eliminar."
      * ),
-     * @OA\Response(response=204, description="Producto eliminado con éxito. (No Content)"),
+     *  @OA\Response(
+     *   response=200,
+     *   description="Pedido eliminado con éxito.",
+     *   @OA\JsonContent(
+     *       @OA\Property(property="message", type="string", example="Pedido eliminado con éxito. Stock revertido.")
+     *   )
+     * ),
      * @OA\Response(response=403, description="No autorizado"),
      * @OA\Response(response=404, description="Producto no encontrado")
      * )
