@@ -306,7 +306,7 @@ class PedidoController extends Controller
      * path="/api/pedidos/{id}",
      * tags={"Pedidos"},
      * summary="Actualiza el estado o el total de un pedido",
-     * security={{"sanctum": {}}},
+     * security={{"bearer_token": {}}},
      * @OA\Parameter(
      * name="id",
      * in="path",
@@ -346,7 +346,7 @@ class PedidoController extends Controller
      * path="/api/pedidos/{id}",
      * tags={"Pedidos"},
      * summary="Reemplaza o actualiza completamente un pedido (igual que PATCH para este recurso)",
-     * security={{"sanctum": {}}},
+     * security={{"bearer_token": {}}},
      * @OA\Parameter(
      * name="id",
      * in="path",
@@ -403,10 +403,10 @@ class PedidoController extends Controller
         if ($pedido->estado === 'entregado' || $pedido->estado === 'cancelado') {
              // Solo si hay datos válidos en la solicitud (es decir, se intenta actualizar algo)
              if (!empty($validatedData)) {
-                return response()->json([
-                    'error' => 'No se permite actualizar un pedido que ya está finalizado (Entregado o Cancelado).'
-                ], 403);
-            }
+                 return response()->json([
+                     'error' => 'No se permite actualizar un pedido que ya está finalizado (Entregado o Cancelado).'
+                 ], 403);
+             }
         }
         
         try {

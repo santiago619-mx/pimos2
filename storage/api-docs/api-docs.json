@@ -570,7 +570,7 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearer_token": []
                     }
                 ]
             },
@@ -618,7 +618,7 @@
                     "Pedidos"
                 ],
                 "summary": "Actualiza el estado o el total de un pedido",
-                "description": "Actualiza un pedido existente (PUT/PATCH /api/pedidos/{id}).\n* @OA\\Patch(\npath=\"/api/pedidos/{id}\",\ntags={\"Pedidos\"},\nsummary=\"Actualiza el estado o el total de un pedido\",\nsecurity={{\"sanctum\": {}}},",
+                "description": "Actualiza un pedido existente (PUT/PATCH /api/pedidos/{id}).\n* @OA\\Patch(\npath=\"/api/pedidos/{id}\",\ntags={\"Pedidos\"},\nsummary=\"Actualiza el estado o el total de un pedido\",\nsecurity={{\"bearer_token\": {}}},",
                 "operationId": "ba5ba820be10362302732907351ef5f9",
                 "parameters": [
                     {
@@ -692,7 +692,7 @@
                 },
                 "security": [
                     {
-                        "sanctum": []
+                        "bearer_token": []
                     }
                 ]
             }
