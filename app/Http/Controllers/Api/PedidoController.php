@@ -462,8 +462,11 @@ class PedidoController extends Controller
  *         @OA\Schema(type="integer", example=1)
  *     ),
  *     @OA\Response(
- *         response=204,
- *         description="Pedido eliminado y stock revertido con éxito."
+ *         response=200,
+ *         description="Pedido eliminado con éxito.",
+ *       @OA\JsonContent(
+ *             @OA\Property(property="message", type="string", example="Pedido eliminado con éxito. Stock revertido.")
+ *        )
  *     ),
  *     @OA\Response(
  *         response=401,
@@ -480,42 +483,44 @@ class PedidoController extends Controller
  * )
  */
 
-    public function destroy(int $id)
-    {
-        $pedido = Pedido::with('detallesPedidos')->find($id);
+   public function destroy(int $id)
+{
+    $pedido = Pedido::with('detallesPedidos')->find($id);
 
-        if (!$pedido) {
-            return response()->json(['error' => 'Pedido no encontrado.'], Response::HTTP_NOT_FOUND);
-        }
-
-        // Autorización para eliminar (usa delete de PedidoPolicy)
-        $this->authorize('delete', $pedido);
-
-        // Condición de seguridad: No eliminar si ya fue entregado
-        if ($pedido->estado === 'entregado') {
-            return response()->json(['error' => 'No se puede eliminar un pedido ya entregado.'], Response::HTTP_FORBIDDEN);
-        }
-
-        try {
-            DB::beginTransaction();
-
-            // 1. Revertir el stock (usando el nuevo método privado que incluye lockForUpdate)
-            $this->revertirStock($pedido);
-
-            // 2. Eliminar el pedido
-            $pedido->delete();
-            
-            DB::commit();
-
-            return response()->json(['message' => 'Pedido y detalles eliminados con éxito. Stock revertido.'], Response::HTTP_NO_CONTENT);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error("Error al eliminar pedido {$pedido->id}: " . $e->getMessage());
-            
-            return response()->json([
-                'error' => 'Error al eliminar el pedido y revertir el stock.'
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
+    if (!$pedido) {
+        return response()->json(['error' => 'Pedido no encontrado.'], Response::HTTP_NOT_FOUND);
     }
+
+    // Autorización mediante PedidoPolicy
+    $this->authorize('delete', $pedido);
+
+    if ($pedido->estado === 'entregado') {
+        return response()->json(['error' => 'No se puede eliminar un pedido ya entregado.'], Response::HTTP_FORBIDDEN);
+    }
+
+    try {
+        DB::beginTransaction();
+
+        // Revertir el stock
+        $this->revertirStock($pedido);
+
+        // Eliminar el pedido
+        $pedido->delete();
+
+        DB::commit();
+
+        // Cambiamos 204 → 200 y enviamos mensaje
+        return response()->json([
+            'message' => 'Pedido eliminado con éxito. Stock revertido.'
+        ], Response::HTTP_OK);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error("Error al eliminar pedido {$pedido->id}: " . $e->getMessage());
+
+        return response()->json([
+            'error' => 'Error al eliminar el pedido y revertir el stock.'
+        ], Response::HTTP_INTERNAL_SERVER_ERROR);
+    }
+}
 }

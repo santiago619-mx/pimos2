@@ -679,8 +679,21 @@
                     }
                 ],
                 "responses": {
-                    "204": {
-                        "description": "Pedido eliminado y stock revertido con éxito."
+                    "200": {
+                        "description": "Pedido eliminado con éxito.",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Pedido eliminado con éxito. Stock revertido."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "401": {
                         "description": "No autenticado."
