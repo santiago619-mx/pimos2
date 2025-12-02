@@ -6,7 +6,7 @@ use App\Models\Inventario;
 use App\Models\Pedido;
 use App\Models\Producto;
 use App\Models\User;
- // <--- AGREGAR: Modelo de Roles para asignación robusta
+
 use App\Models\DetallePedido; 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
