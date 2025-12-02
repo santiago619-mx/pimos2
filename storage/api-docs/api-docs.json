@@ -951,21 +951,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Pedido eliminado con éxito.",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "properties": {
-                                        "message": {
-                                            "type": "string",
-                                            "example": "Pedido eliminado con éxito. Stock revertido."
-                                        }
-                                    },
-                                    "type": "object"
-                                }
-                            }
-                        }
+                    "204": {
+                        "description": "Producto eliminado con éxito (Sin Contenido)."
                     },
                     "403": {
                         "description": "No autorizado"

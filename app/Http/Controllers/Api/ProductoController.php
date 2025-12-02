@@ -139,16 +139,14 @@ class ProductoController extends Controller
      * @OA\Response(response=404, description="Producto no encontrado")
      * )
      */
-    public function show(int $id)
+    // USANDO ROUTE MODEL BINDING
+    public function show(Producto $producto) // <-- Cambio de (int $id) a (Producto $producto)
     {
         // Autorización basada en Spatie: el usuario debe tener el permiso 'productos.ver'
         $this->authorize('productos.ver'); 
 
-        $producto = Producto::with('inventario')->find($id);
-
-        if (!$producto) {
-            return response()->json(['error' => 'Producto no encontrado.'], Response::HTTP_NOT_FOUND);
-        }
+        // Si el producto no se encuentra, Laravel ya lanza un 404 automáticamente.
+        $producto->load('inventario');
 
         return new ProductoResource($producto); 
     }
@@ -184,17 +182,13 @@ class ProductoController extends Controller
      * @OA\Response(response=404, description="Producto no encontrado")
      * )
      */
-    public function update(UpdateProductoRequest $request, int $id)
+    // USANDO ROUTE MODEL BINDING
+    public function update(UpdateProductoRequest $request, Producto $producto) // <-- Cambio de (int $id) a (Producto $producto)
     {
         // Autorización basada en Spatie: el usuario debe tener el permiso 'productos.editar'
         $this->authorize('productos.editar');
 
-        $producto = Producto::find($id);
-
-        if (!$producto) {
-            return response()->json(['error' => 'Producto no encontrado.'], Response::HTTP_NOT_FOUND);
-        }
-
+        // Ya no se necesita el chequeo de 404
         $validatedData = $request->validated(); 
 
         try {
@@ -223,32 +217,25 @@ class ProductoController extends Controller
      * @OA\Schema(type="integer"),
      * description="ID del producto a eliminar."
      * ),
-     *  @OA\Response(
-     *   response=200,
-     *   description="Pedido eliminado con éxito.",
-     *   @OA\JsonContent(
-     *       @OA\Property(property="message", type="string", example="Pedido eliminado con éxito. Stock revertido.")
-     *   )
+     * @OA\Response(
+     * response=204,
+     * description="Producto eliminado con éxito (Sin Contenido).",
      * ),
      * @OA\Response(response=403, description="No autorizado"),
      * @OA\Response(response=404, description="Producto no encontrado")
      * )
      */
-    public function destroy(int $id)
+    // USANDO ROUTE MODEL BINDING
+    public function destroy(Producto $producto) // <-- Cambio de (int $id) a (Producto $producto)
     {
         // Autorización basada en Spatie: el usuario debe tener el permiso 'productos.eliminar'
         $this->authorize('productos.eliminar');
         
-        $producto = Producto::find($id);
-
-        if (!$producto) {
-            return response()->json(['error' => 'Producto no encontrado.'], Response::HTTP_NOT_FOUND);
-        }
-        
+        // Si el producto no se encuentra, Laravel ya lanza un 404 automáticamente.
         try {
             $producto->delete();
             
-            // Respuesta con código 204 (No Content)
+            // Respuesta con código 204 (No Content) - Estándar para DELETE exitoso.
             return response()->json(null, Response::HTTP_NO_CONTENT);
 
         } catch (\Exception $e) {
